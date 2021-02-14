@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation
 
 class gt_maker:
     def __init__(self):
-        dirs = '../lsgsvl_raw'
+        dirs = 'lgsvl_raw'
         seqs = [str(3).zfill(2)]
         self.dirs_seq = []
         self.dirs_gps = []
@@ -29,20 +29,21 @@ class gt_maker:
             self.dirs_gps.append(os.path.join(dirs, seq, 'gps'))
             self.dirs_pcl.append(os.path.join(dirs, seq, 'velodyne'))
         self.calib_txt = join(dirs, seq, "calib","000001.txt")
-        self.Tr_velo_to_cam, self.Tr_cam_to_velo = self.get_vel2cam()
+        self.Tr_imu_to_velo, self.Tr_velo_to_imu = self.get_vel2cam()
         self.degree2rad = 1.0*pi/180.0
 
     def get_vel2cam(self):
         file = open(self.calib_txt)
         lines = file.readlines()
-        line = lines[5]
-        line = line.replace('Tr_velo_to_cam: ', '')
+#changed
+        line = lines[6]
+        line = line.replace('Tr_imu_to_velo: ', '')
         eles = [float(e) for e in line.split(' ') if e != '']
-        Tr_velo_to_cam = np.eye(4)
+        Tr_imu_to_velo = np.eye(4)
         for i in range(3):
             for j in range(4):
-                Tr_velo_to_cam[i, j] = eles[i * 4 + j]
-        return Tr_velo_to_cam, np.linalg.inv(Tr_velo_to_cam)
+                Tr_imu_to_velo[i, j] = eles[i * 4 + j]
+        return np.linalg.inv(Tr_imu_to_velo),Tr_imu_to_velo
 
     def get_WGS_84(self, file):
         f = open(file)
@@ -53,11 +54,13 @@ class gt_maker:
         line = line.replace(',', ' ')
         gps = [float(e) for e in line.split(' ') if e!='']
         T = np.eye(4)
-        rotvec = np.asarray([gps[3]*self.degree2rad, gps[4]*self.degree2rad, gps[5]*self.degree2rad])
+
+#changed
+        rotvec = np.asarray([gps[5]*self.degree2rad, gps[3]*self.degree2rad, gps[4]*self.degree2rad])
         T[:3,:3] = Rotation.from_rotvec(rotvec).as_matrix()
-        T[0, 3] = gps[0]
-        T[1, 3] = gps[1]
-        T[2, 3] = gps[2]
+        T[0, 3] = gps[2]
+        T[1, 3] = gps[0]
+        T[2, 3] = gps[1]
         return T
 
     def write_odo_file(self, dir_gps, odometry):
@@ -85,12 +88,12 @@ class gt_maker:
                 if init:
                     T_init = T
                     init = False
-                #     计算相对初始帧的位姿, 并从相机坐标系下转到雷达坐标系
+                # 
                 T = np.linalg.inv(T_init) @ T
                 # T = np.linalg.inv(T) @ T_init
                 # T = T @ np.linalg.inv(T_init)
                 # T = T_init @ np.linalg.inv(T)
-                T = self.Tr_cam_to_velo @ T @ self.Tr_velo_to_cam
+                T = self.Tr_velo_to_imu @ T @ self.Tr_imu_to_velo
                 odometry.append(T)
             self.write_odo_file(dir_gps, odometry)
 
@@ -141,8 +144,8 @@ class gt_maker:
         for dir_pcl in self.dirs_pcl:
             pclfiles = sorted(glob(join(dir_pcl, '*')))
 
-            one = 950
-            othor = one + 5
+            one = 1
+            othor = one + 20
             pcl1 = np.fromfile(pclfiles[one], dtype=np.float32).reshape(-1, 4)[:,:3]
             pcl2 = np.fromfile(pclfiles[othor], dtype=np.float32).reshape(-1, 4)[:,:3]
 
@@ -150,18 +153,18 @@ class gt_maker:
             # self.draw_traj(gts)
             pose1 = gts[one]
             pose2 = gts[othor]
-            # self.visual_pcl(pcl1, pcl2)
-            self.refine_registration(pcl1, pcl2)
+            self.visual_pcl(pcl1, pcl2)
+            #self.refine_registration(pcl1, pcl2)
             Ts = [np.linalg.inv(pose1) @ pose2, np.linalg.inv(pose2) @ pose1, pose2 @ np.linalg.inv(pose1), pose1 @ np.linalg.inv(pose2)]
             for i in range(4):
                 print('')
                 print(Ts[i])
-            # self.visual_pcl(pcl1, pcl2,pose1, pose2)
-            # self.visual_pcl(pcl1, pcl2,np.linalg.inv(pose1), np.linalg.inv(pose2))
-            # self.visual_pcl(pcl1, pcl2, Ts[0])
-            # self.visual_pcl(pcl1, pcl2, Ts[1])
-            # self.visual_pcl(pcl1, pcl2, Ts[2])
-            # self.visual_pcl(pcl1, pcl2, Ts[3])
+            self.visual_pcl(pcl1, pcl2,pose1, pose2)
+            #self.visual_pcl(pcl1, pcl2,np.linalg.inv(pose1), np.linalg.inv(pose2))
+            #self.visual_pcl(pcl1, pcl2, Ts[0])
+            #self.visual_pcl(pcl1, pcl2, Ts[1])
+            #self.visual_pcl(pcl1, pcl2, Ts[2])
+            #self.visual_pcl(pcl1, pcl2, Ts[3])
 
             # for pcl_file in pclfiles:
             #     print(pcl_file)
@@ -175,9 +178,9 @@ class gt_maker:
         pcd1.paint_uniform_color([1, 0.706, 0])
         pcd2.paint_uniform_color([0, 0.651, 0.929])
         pcd2 = pcd2.transform(T)
-        # o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
-        #                                   top=50,
-        #                                   point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
+        o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
+                                           top=50,
+                                           point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
 
     def visual_one_pcl(self, pcl, color = [1, 0.706, 0]):
 
@@ -197,9 +200,9 @@ class gt_maker:
         pcd2.paint_uniform_color([0, 0.651, 0.929])
         pcd1 = pcd1.transform(T1)
         pcd2 = pcd2.transform(T2)
-        # o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
-        #                                   top=50,
-        #                                   point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
+        o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
+                                           top=50,
+                                           point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
 
 
 if __name__ == '__main__':
