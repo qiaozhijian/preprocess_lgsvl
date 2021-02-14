@@ -14,6 +14,7 @@ import re
 from normalize_pcl import normalize
 import argparse
 
+
 class Prepross:
     def __init__(self):
         self.positions_train = [[0, 0, 0]]
@@ -71,41 +72,42 @@ class Prepross:
                                   'altitude': positions_test[:, 2].reshape(-1)})
         dataframe.to_csv(join(dest_dir_seq, "./pointcloud_locations_20m.csv"), index=False, sep=',')
 
-    def generate_pcl(self, pcl_dir,  dest_dir_seq):
+    def generate_pcl(self, pcl_dir, dest_dir_seq):
         print('start copy {} from {}'.format(dest_dir_seq, pcl_dir))
-        train_dir = os.path.join(dest_dir_seq,'pointcloud_20m_10overlap')
-        test_dir = os.path.join(dest_dir_seq,'pointcloud_20m')
+        train_dir = os.path.join(dest_dir_seq, 'pointcloud_20m_10overlap')
+        test_dir = os.path.join(dest_dir_seq, 'pointcloud_20m')
         if not os.path.exists(test_dir):
             os.mkdir(test_dir)
         if not os.path.exists(train_dir):
             os.mkdir(train_dir)
         for timestamp in self.timestamp_list_train:
-            pcl_file = os.path.join(pcl_dir,timestamp+'.bin')
-            pcl_file_new = os.path.join(train_dir,timestamp+'.bin')
+            pcl_file = os.path.join(pcl_dir, timestamp + '.bin')
+            pcl_file_new = os.path.join(train_dir, timestamp + '.bin')
             shutil.copy(pcl_file, pcl_file_new)
         for timestamp in self.timestamp_list_test:
-            pcl_file = os.path.join(pcl_dir,timestamp+'.bin')
-            pcl_file_new = os.path.join(test_dir,timestamp+'.bin')
+            pcl_file = os.path.join(pcl_dir, timestamp + '.bin')
+            pcl_file_new = os.path.join(test_dir, timestamp + '.bin')
             shutil.copy(pcl_file, pcl_file_new)
 
     def normalize_pcl(self, dest_dir_seq):
         print('start copy {} from {}'.format(dest_dir_seq, pcl_dir))
-        train_dir = os.path.join(dest_dir_seq,'pointcloud_20m_10overlap')
-        test_dir = os.path.join(dest_dir_seq,'pointcloud_20m')
+        train_dir = os.path.join(dest_dir_seq, 'pointcloud_20m_10overlap')
+        test_dir = os.path.join(dest_dir_seq, 'pointcloud_20m')
         for pcl_file in glob(os.path.join(train_dir, '*.bin')):
             try:
-                pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1,4)
+                pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1, 4)
                 pcl = normalize(pcl, self.scale)
                 pcl.tofile(pcl_file)
             except:
                 print('wrong train_dir {}'.format(pcl_file))
         for pcl_file in glob(os.path.join(test_dir, '*.bin')):
             try:
-                pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1,4)
+                pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1, 4)
                 pcl = normalize(pcl, self.scale)
                 pcl.tofile(pcl_file)
             except:
                 print('wrong train_dir {}'.format(pcl_file))
+
     def get_WGS_84(self, file):
         f = open(file)
         line = f.readlines()[0]
@@ -123,6 +125,7 @@ class Prepross:
         orientation = gps[-1]
         return northing, easting, altitude, orientation
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', default='../', type=str)
@@ -133,7 +136,7 @@ if __name__ == '__main__':
     dataset_dir = args.dir
     dest_dir = args.dest
     img = 'image_jpg'
-    for i in tqdm(np.arange(1,args.num+1)):
+    for i in tqdm(np.arange(1, args.num + 1)):
         seq = str(i).zfill(2)
         dest_dir_seq = os.path.join(dest_dir, seq)
         if not os.path.exists(dest_dir_seq):
@@ -147,4 +150,3 @@ if __name__ == '__main__':
         preprocess.normalize_pcl(dest_dir_seq=dest_dir_seq)
 
         print('finish')
-
