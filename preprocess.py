@@ -46,7 +46,7 @@ class Prepross:
         
     def make_gt(self):
         self.Tr_imu_to_velo, self.Tr_velo_to_imu = self.get_vel2cam()
-        gps_files = glob(join(self.source_gps,'*'))
+        gps_files = sorted(glob(join(self.source_gps,'*')))
         T_init = np.eye(4)
         init = True
         odometry = []
