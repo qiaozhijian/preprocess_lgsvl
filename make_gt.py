@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation
 
 class gt_maker:
     def __init__(self):
-        dirs = 'lgsvl_raw'
+        dirs = '../lgsvl_raw'
         seqs = [str(3).zfill(2)]
         self.dirs_seq = []
         self.dirs_gps = []
@@ -153,21 +153,8 @@ class gt_maker:
             # self.draw_traj(gts)
             pose1 = gts[one]
             pose2 = gts[othor]
-            self.visual_pcl(pcl1, pcl2)
             #self.refine_registration(pcl1, pcl2)
-            Ts = [np.linalg.inv(pose1) @ pose2, np.linalg.inv(pose2) @ pose1, pose2 @ np.linalg.inv(pose1), pose1 @ np.linalg.inv(pose2)]
-            for i in range(4):
-                print('')
-                print(Ts[i])
-            self.visual_pcl(pcl1, pcl2,pose1, pose2)
-            #self.visual_pcl(pcl1, pcl2,np.linalg.inv(pose1), np.linalg.inv(pose2))
-            #self.visual_pcl(pcl1, pcl2, Ts[0])
-            #self.visual_pcl(pcl1, pcl2, Ts[1])
-            #self.visual_pcl(pcl1, pcl2, Ts[2])
-            #self.visual_pcl(pcl1, pcl2, Ts[3])
-
-            # for pcl_file in pclfiles:
-            #     print(pcl_file)
+            # self.visual_pcl(pcl1, pcl2, np.linalg.inv(pose1) @ pose2)
 
     def visual_pcl(self, pcl1, pcl2, T=np.eye(4)):
 
@@ -190,22 +177,9 @@ class gt_maker:
 
         o3d.visualization.draw_geometries([pcd1], window_name='Open3D Origin')
 
-    def visual_pcl(self, pcl1, pcl2, T1=np.eye(4), T2=np.eye(4)):
-
-        pcd1 = o3d.geometry.PointCloud()
-        pcd1.points = o3d.utility.Vector3dVector(pcl1)
-        pcd2 = o3d.geometry.PointCloud()
-        pcd2.points = o3d.utility.Vector3dVector(pcl2)
-        pcd1.paint_uniform_color([1, 0.706, 0])
-        pcd2.paint_uniform_color([0, 0.651, 0.929])
-        pcd1 = pcd1.transform(T1)
-        pcd2 = pcd2.transform(T2)
-        o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
-                                           top=50,
-                                           point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
 
 
 if __name__ == '__main__':
     maker = gt_maker()
     maker.make()
-    maker.check()
+    # maker.check()
