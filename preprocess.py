@@ -50,7 +50,6 @@ class Prepross:
         T_init = np.eye(4)
         init = True
         odometry = []
-        self.odometry_dict = {}
         for gps_file in gps_files:
             T = self.get_pose(gps_file)
             if init:
@@ -59,7 +58,6 @@ class Prepross:
             T = np.linalg.inv(T_init) @ T
             T = self.Tr_velo_to_imu @ T @ self.Tr_imu_to_velo
             odometry.append(T)
-            self.odometry_dict[gps_file] = T
         self.write_odo_file(odometry)
 
     def generate_samples(self):
@@ -70,8 +68,8 @@ class Prepross:
         gps_files = sorted(glob(os.path.join(self.source_gps, '*')))
         for gps_file in gps_files:
             timestamp = os.path.splitext(gps_file)[0].split('/')[-1]
-            T = self.odometry_dict[gps_file]
-            position = T[:3,3].tolist()
+            northing, easting, altitude, orientation = self.get_WGS_84(gps_file)
+            position = [northing, easting, altitude]
             if self.findNearest(position, self.positions_train, 20):
                 self.positions_train.append(position)
                 self.timestamp_list_train.append(timestamp)
