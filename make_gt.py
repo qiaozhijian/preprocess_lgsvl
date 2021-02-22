@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation
 
 class gt_maker:
     def __init__(self):
-        dirs = '../lgsvl_raw'
+        dirs = '../rawdata'
         seqs = [str(3).zfill(2)]
         self.dirs_seq = []
         self.dirs_gps = []

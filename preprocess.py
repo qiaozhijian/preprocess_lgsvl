@@ -2,10 +2,10 @@ import numpy as np
 from glob import glob
 from tqdm import tqdm
 import os
-import open3d as o3d
 import pandas as pd
 import shutil
 from os.path import join
+
 from sklearn.neighbors import KDTree
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KDTree
@@ -194,8 +194,8 @@ class Prepross:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source', default='../lgsvl_raw', type=str)
-    parser.add_argument('--target', default='../LGSVL_new', type=str)
+    parser.add_argument('--source', default='../rawdata', type=str)
+    parser.add_argument('--target', default='../newdata', type=str)
     args = parser.parse_args()
 
     for seq_source_dir in tqdm(glob(join(args.source, "[0-9][0-9]"))):

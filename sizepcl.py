@@ -24,7 +24,7 @@ def visual_pcl(pcl):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dir', default='../LGSVL', type=str)
+    parser.add_argument('--dir', default='../newdata', type=str)
     parser.add_argument('--num', default=23, type=int)
     args = parser.parse_args()
 
