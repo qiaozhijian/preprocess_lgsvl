@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation
 
 class gt_maker:
     def __init__(self):
-        dirs = '../lgsvl_raw'
+        dirs = './benchmark_datasets/lgsvl_raw'
         seqs = [str(3).zfill(2)]
         self.dirs_seq = []
         self.dirs_gps = []
@@ -90,9 +90,6 @@ class gt_maker:
                     init = False
                 # 
                 T = np.linalg.inv(T_init) @ T
-                # T = np.linalg.inv(T) @ T_init
-                # T = T @ np.linalg.inv(T_init)
-                # T = T_init @ np.linalg.inv(T)
                 T = self.Tr_velo_to_imu @ T @ self.Tr_imu_to_velo
                 odometry.append(T)
             self.write_odo_file(dir_gps, odometry)
@@ -145,7 +142,7 @@ class gt_maker:
             pclfiles = sorted(glob(join(dir_pcl, '*')))
 
             one = 1
-            othor = one + 20
+            othor = one + 10
             pcl1 = np.fromfile(pclfiles[one], dtype=np.float32).reshape(-1, 4)[:,:3]
             pcl2 = np.fromfile(pclfiles[othor], dtype=np.float32).reshape(-1, 4)[:,:3]
 
@@ -154,9 +151,9 @@ class gt_maker:
             pose1 = gts[one]
             pose2 = gts[othor]
             #self.refine_registration(pcl1, pcl2)
-            # self.visual_pcl(pcl1, pcl2, np.linalg.inv(pose1) @ pose2)
+            self.visual_pcl(pcl1, pcl2, np.eye(4),np.linalg.inv(pose1) @ pose2)
 
-    def visual_pcl(self, pcl1, pcl2, T=np.eye(4)):
+    def visual_pcl(self, pcl1, pcl2, T1=np.eye(4), T2=np.eye(4)):
 
         pcd1 = o3d.geometry.PointCloud()
         pcd1.points = o3d.utility.Vector3dVector(pcl1)
@@ -164,7 +161,8 @@ class gt_maker:
         pcd2.points = o3d.utility.Vector3dVector(pcl2)
         pcd1.paint_uniform_color([1, 0.706, 0])
         pcd2.paint_uniform_color([0, 0.651, 0.929])
-        pcd2 = pcd2.transform(T)
+        pcd1 = pcd1.transform(T1)
+        pcd2 = pcd2.transform(T2)
         o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
                                            top=50,
                                            point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
@@ -182,4 +180,4 @@ class gt_maker:
 if __name__ == '__main__':
     maker = gt_maker()
     maker.make()
-    # maker.check()
+    maker.check()

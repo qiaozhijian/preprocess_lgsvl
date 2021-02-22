@@ -2,17 +2,21 @@ import numpy as np
 import open3d as o3d
 
 
-def normalize(pcl, scale=1):
-    pcl = pcl[:, :3] / scale
+def normalize(pcl):
+
+    pcl[:, :2] = pcl[:, :2] / 120
+    pcl[:, 2] = pcl[:, 2] / 30
+    pcl = zoom_in(pcl[:, :3])
+    pcl[:, 2] = pcl[:, 2] - 0.15
+
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pcl)
+    pcd.points = o3d.utility.Vector3dVector(pcl[:,:3])
 
-    # pcd = zoom_in(pcd)
-    pcd = down_sample(pcd, scale=scale, visualization=False)
-    # pcd = remove_ground(pcd, scale = scale, visualization=False)
-    pcd = remove_outlier(pcd, visualization=False)
+    # pcd = down_sample(pcd, visualization=False)
+    pcd = remove_ground(pcd, visualization=False)
+    # pcd = remove_outlier(pcd, visualization=False)
 
-    pcd = down4096(pcd)
+    # pcd = down4096(pcd)
 
     if False:
         o3d.visualization.draw_geometries([pcd], window_name='Open3D Origin', width=1920, height=1080, left=50, top=50,
@@ -20,18 +24,15 @@ def normalize(pcl, scale=1):
     return np.asarray(pcd.points)
 
 
-def zoom_in(pcd):
-    pcl = np.asarray(pcd.points)
-
+def zoom_in(pcl):
     num = pcl.shape[0]
     pcl_new = []
     for i in range(num):
         if abs(max(pcl[i, :])) < 1 and abs(min(pcl[i, :])) < 1:
             pcl_new.append(pcl[i, :])
     pcl_new = np.vstack(pcl_new).reshape(-1, 3)
-    pcd.points = o3d.utility.Vector3dVector(pcl_new)
 
-    return pcd
+    return pcl_new
 
 
 def display_inlier_outlier(cloud, ind):
@@ -71,13 +72,13 @@ def down4096(pcd):
     return pcd
 
 
-def down_sample(pcd, scale=1, visualization=False):
+def down_sample(pcd, visualization=False):
     # 下采样
     # voxel_down_sample（把点云分配在三维的网格中，取平均值）
     # uniform_down_sample (可以通过收集每第n个点来对点云进行下采样)
     # select_down_sample (使用带二进制掩码的select_down_sample仅输出所选点。选定的点和未选定的点并可视化。）
 
-    downpcd = pcd.voxel_down_sample(voxel_size=0.03 / scale)
+    downpcd = pcd.voxel_down_sample(voxel_size=0.03)
 
     if visualization:
         o3d.visualization.draw_geometries([downpcd], window_name='Open3D downSample', width=1920, height=1080, left=50,
@@ -106,14 +107,12 @@ def remove_outlier(pcd, visualization=False):
     return downpcd_inlier_cloud
 
 
-def remove_ground(pcd, scale=1, visualization=False):
+def remove_ground(pcd, visualization=False):
     # 平面分割 【Plane Segmentation】
     # Open3D还包含使用RANSAC从点云中分割几何图元的支持。要在点云中找到具有最大支持的平面，我们可以使用segement_plane。该方法具有三个参数。
     # distance_threshold定义一个点到一个估计平面的最大距离，该点可被视为一个不规则点； ransac_n定义随机采样的点数以估计一个平面； num_iterations定义对随机平面进行采样和验证的频率。
     # 函数然后将平面返回为（a，b，c，d） 这样，对于平面上的每个点（x，y，z），我们都有ax + by + cz + d = 0。该功能进一步调整内部点的索引列表。
-    plane_model, inliers = pcd.segment_plane(distance_threshold=0.4 / scale,
-                                             ransac_n=5,
-                                             num_iterations=100)
+    plane_model, inliers = pcd.segment_plane(distance_threshold=0.05, ransac_n=5, num_iterations=100)
     [a, b, c, d] = plane_model
 
     inlier_cloud = pcd.select_by_index(inliers)

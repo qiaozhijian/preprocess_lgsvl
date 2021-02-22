@@ -24,9 +24,11 @@ class Prepross:
         self.target_dir = target_dir
         self.mkdir_dirs()
         self.make_gt()
-        self.generate_samples()
-        self.move_pcl()
-        self.normalize_pcl()
+        self.generate_map()
+        # self.generate_samples()
+        # self.move_pcl()
+        # self.normalize_pcl()
+        # self.check()
 
     def mkdir_dirs(self):
 
@@ -49,7 +51,7 @@ class Prepross:
         gps_files = sorted(glob(join(self.source_gps,'*')))
         T_init = np.eye(4)
         init = True
-        odometry = []
+        self.odometry = []
         for gps_file in gps_files:
             T = self.get_pose(gps_file)
             if init:
@@ -57,8 +59,37 @@ class Prepross:
                 init = False
             T = np.linalg.inv(T_init) @ T
             T = self.Tr_velo_to_imu @ T @ self.Tr_imu_to_velo
-            odometry.append(T)
-        self.write_odo_file(odometry)
+            self.odometry.append(T)
+        self.write_odo_file(self.odometry)
+
+    def generate_map(self):
+        # for pcl_file in sorted(glob(os.path.join(self.source_velodyne, '*.bin'))):
+
+        positions = [[0, 0, 0]]
+        timestamp_list = []
+        poses = []
+        gps_files = sorted(glob(os.path.join(self.source_gps, '*')))
+        for gps_file, pose in zip(gps_files,self.odometry):
+            timestamp = os.path.splitext(gps_file)[0].split('/')[-1]
+            northing, easting, altitude, orientation = self.get_WGS_84(gps_file)
+            position = [northing, easting, altitude]
+            if self.findNearest(position, positions, 50):
+                positions.append(position)
+                timestamp_list.append(timestamp)
+                poses.append(pose)
+        map = []
+        for timestamp, pose in zip(timestamp_list,poses):
+            pcl_file = os.path.join(self.source_velodyne, timestamp + '.bin')
+            pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1, 4)[:,:3]
+            pcl = pcl @ pose[:3, :3].T + pose[:3, 3].reshape(1,3)
+            map.append(pcl)
+        map = np.concatenate(map[:10], axis=0)
+        map = map
+        map_pcd = o3d.geometry.PointCloud()
+        map_pcd.points = o3d.utility.Vector3dVector(map)
+        map_pcd = map_pcd.voxel_down_sample(voxel_size=0.2)
+        o3d.visualization.draw_geometries([map_pcd], window_name='Open3D Origin')
+
 
     def generate_samples(self):
         self.positions_train = [[0, 0, 0]]
@@ -102,7 +133,6 @@ class Prepross:
             pcl_file = os.path.join(self.source_velodyne, timestamp + '.bin')
             pcl_file_new = os.path.join(self.tar_test_dir, timestamp + '.bin')
             shutil.copy(pcl_file, pcl_file_new)
-
     
     def findNearest(self, pos, database, thresold=0.125):
         database = np.asarray(database).reshape(-1, 3)
@@ -117,18 +147,52 @@ class Prepross:
         ranges = []
         for pcl_file in glob(os.path.join(self.tar_train_dir, '*.bin')):
             pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1, 4)
-            # pcl = normalize(pcl)
             ranges.append(np.max(np.abs(pcl), axis=0).reshape(1,-1))
+            # pcl = normalize(pcl)
             pcl.tofile(pcl_file)
         ranges = np.concatenate(ranges, axis=0)
         ranges = np.mean(ranges, axis=0)
-        print("ranges x: {}, y: {}, z: {}".format(ranges[0], ranges[1], ranges[2]))
+        # print("ranges x: {}, y: {}, z: {}".format(ranges[0], ranges[1], ranges[2]))
 
         for pcl_file in glob(os.path.join(self.tar_test_dir, '*.bin')):
             pcl = np.fromfile(pcl_file, dtype=np.float32).reshape(-1, 4)
             # pcl = normalize(pcl)
             pcl.tofile(pcl_file)
 
+    def check(self):
+
+        pclfiles = sorted(glob(os.path.join(self.source_velodyne, '*.bin')))
+        one = 1
+        othor = one + 10
+        pcl1 = np.fromfile(pclfiles[one], dtype=np.float32).reshape(-1, 4)[:, :3]
+        pcl2 = np.fromfile(pclfiles[othor], dtype=np.float32).reshape(-1, 4)[:, :3]
+        # self.draw_traj(self.odometry)
+        pose1 = self.odometry[one]
+        pose2 = self.odometry[othor]
+        self.visual_pcl(pcl1, pcl2, np.eye(4), np.linalg.inv(pose1) @ pose2)
+
+    def visual_pcl(self, pcl1, pcl2, T1=np.eye(4), T2=np.eye(4)):
+
+        pcd1 = o3d.geometry.PointCloud()
+        pcd1.points = o3d.utility.Vector3dVector(pcl1)
+        pcd2 = o3d.geometry.PointCloud()
+        pcd2.points = o3d.utility.Vector3dVector(pcl2)
+        pcd1.paint_uniform_color([1, 0.706, 0])
+        pcd2.paint_uniform_color([0, 0.651, 0.929])
+        pcd1 = pcd1.transform(T1)
+        pcd2 = pcd2.transform(T2)
+        o3d.visualization.draw_geometries([pcd1, pcd2], window_name='Open3D Origin', width=1920, height=1080, left=50,
+                                           top=50,
+                                           point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
+
+    def draw_traj(self,gts):
+        traj = []
+        for gt in gts:
+            traj.append(gt[:3,3].reshape(1,3))
+        traj = np.concatenate(traj, axis=0)
+        pcd1 = o3d.geometry.PointCloud()
+        pcd1.points = o3d.utility.Vector3dVector(traj)
+        o3d.visualization.draw_geometries([pcd1], window_name='Open3D Origin')
 
     def get_WGS_84(self, file):
         f = open(file)
@@ -194,8 +258,8 @@ class Prepross:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source', default='../lgsvl_raw', type=str)
-    parser.add_argument('--target', default='../LGSVL_new', type=str)
+    parser.add_argument('--source', default='./benchmark_datasets/lgsvl_raw', type=str)
+    parser.add_argument('--target', default='../benchmark_datasets/lgsvl', type=str)
     args = parser.parse_args()
 
     for seq_source_dir in tqdm(glob(join(args.source, "[0-9][0-9]"))):
