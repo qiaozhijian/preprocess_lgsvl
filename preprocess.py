@@ -24,11 +24,11 @@ class Prepross:
         self.target_dir = target_dir
         self.mkdir_dirs()
         self.make_gt()
-        self.generate_map()
-        # self.generate_samples()
-        # self.move_pcl()
-        # self.normalize_pcl()
-        # self.check()
+        # self.generate_map()
+        self.generate_samples()
+        self.move_pcl()
+        self.normalize_pcl()
+        self.check()
 
     def mkdir_dirs(self):
 
@@ -259,7 +259,7 @@ class Prepross:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--source', default='./benchmark_datasets/lgsvl_raw', type=str)
-    parser.add_argument('--target', default='../benchmark_datasets/lgsvl', type=str)
+    parser.add_argument('--target', default='./benchmark_datasets/lgsvl_1', type=str)
     args = parser.parse_args()
 
     for seq_source_dir in tqdm(glob(join(args.source, "[0-9][0-9]"))):
