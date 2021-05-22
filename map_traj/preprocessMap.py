@@ -7,11 +7,7 @@ import pandas as pd
 import shutil
 from os.path import join
 from sklearn.neighbors import KDTree
-from sklearn.decomposition import PCA
-from sklearn.neighbors import KDTree
-import matplotlib.pyplot as plt
-import re
-from pcl_normalize import normalize
+from map_traj.pcl_normalize import normalize
 import argparse
 from math import pi
 from scipy.spatial.transform import Rotation
@@ -74,7 +70,7 @@ class Preprocess:
         gps_files = sorted(glob(os.path.join(self.source_gps, '*')))
         for gps_file, pose in zip(gps_files, self.odometry):
             timestamp = os.path.splitext(gps_file)[0].split('/')[-1]
-            northing, easting, altitude = self.get_WGS_84(gps_file)
+            northing, easting, altitude = self.get_traj(gps_file)
             position = [northing, easting, altitude]
             if self.findNearest(position, positions, 50):
                 positions.append(position)
@@ -101,7 +97,7 @@ class Preprocess:
         self.timestamp_list_test = []
 
         traj_files = os.path.join(self.source_dir, 'trajectory.pcd')
-        positions = self.get_WGS_84(traj_files)   #[northing, easting, altitude]
+        positions = self.get_traj(traj_files)   #[northing, easting, altitude]
 
         for index in range(positions.shape[0]):
             position = positions[index]
@@ -160,7 +156,7 @@ class Preprocess:
         test_traj = test_traj[:, 1:]
 
         cloud_fname = os.path.join(self.source_dir, 'finalCloud.pcd')
-        pcl_cloud = self.get_WGS_84(cloud_fname)
+        pcl_cloud = self.get_traj(cloud_fname)
 
         print("\n train_set: ")
         for i in tqdm(range(train_traj.shape[0])):
@@ -215,7 +211,7 @@ class Preprocess:
         o3d.visualization.draw_geometries([pcd1], window_name='Open3D Origin')
 
 
-    def get_WGS_84(self, file):
+    def get_traj(self, file):
         # the file is a pcd file
         traj_pcd = o3d.io.read_point_cloud(file)
         traj_points = np.asarray(traj_pcd.points)

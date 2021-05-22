@@ -7,11 +7,6 @@ import pandas as pd
 import shutil
 from os.path import join
 from sklearn.neighbors import KDTree
-from sklearn.decomposition import PCA
-from sklearn.neighbors import KDTree
-import matplotlib.pyplot as plt
-import re
-from normalize_pcl import normalize
 import argparse
 from math import pi
 from scipy.spatial.transform import Rotation

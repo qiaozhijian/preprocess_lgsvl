@@ -1,18 +1,6 @@
 import numpy as np
-from glob import glob
-from tqdm import tqdm
 import os
 import open3d as o3d
-import pandas as pd
-import shutil
-from os.path import join
-from sklearn.neighbors import KDTree
-from sklearn.decomposition import PCA
-from sklearn.neighbors import KDTree
-import matplotlib.pyplot as plt
-import re
-from pcl_normalize import normalize
-import argparse
 
 
 def visual_pcl(pcl1, pcl2):

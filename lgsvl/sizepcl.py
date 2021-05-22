@@ -1,18 +1,6 @@
 import numpy as np
-from glob import glob
-from tqdm import tqdm
-import os
 import open3d as o3d
-import pandas as pd
-import shutil
-from os.path import join
-from sklearn.neighbors import KDTree
-from sklearn.decomposition import PCA
-from sklearn.neighbors import KDTree
-import matplotlib.pyplot as plt
-import re
-from normalize_pcl import normalize
-import argparse
+from lgsvl.normalize_pcl import normalize
 
 
 def visual_pcl(pcl1, pcl2):
@@ -28,14 +16,14 @@ def visual_pcl(pcl1, pcl2):
 
 if __name__ == '__main__':
 
-    file1 = open('benchmark_datasets/lgsvl_raw/00/velodyne/000003.bin')
+    file1 = open('../benchmark_datasets/lgsvl_raw/00/velodyne/000003.bin')
     pcl1 = np.fromfile(file1, dtype=np.float32).reshape(-1, 4)
     pcl1 = normalize(pcl1)
 
-    file1 = open('benchmark_datasets/GTA5/round1/pcl/10.bin')
+    file1 = open('../benchmark_datasets/GTA5/round1/pcl/10.bin')
     pcl1 = np.fromfile(file1, dtype=np.float64).reshape(-1, 3)
 
-    file2 = open('benchmark_datasets/oxford/2014-05-19-13-20-57/pointcloud_20m_10overlap/1400505898024354.bin')
+    file2 = open('../benchmark_datasets/oxford/2014-05-19-13-20-57/pointcloud_20m_10overlap/1400505898024354.bin')
     pcl2 = np.fromfile(file2, dtype=np.float64).reshape(-1, 3)
 
     print(np.max(np.abs(pcl1), axis=0))

@@ -1,18 +1,8 @@
 import numpy as np
 from glob import glob
-from tqdm import tqdm
 import os
 import open3d as o3d
-import pandas as pd
-import shutil
 from os.path import join
-from sklearn.neighbors import KDTree
-from sklearn.decomposition import PCA
-from sklearn.neighbors import KDTree
-import matplotlib.pyplot as plt
-import re
-from normalize_pcl import normalize
-import argparse
 from math import pi
 from scipy.spatial.transform import Rotation
 
@@ -64,7 +54,7 @@ class gt_maker:
         return T
 
     def write_odo_file(self, dir_gps, odometry):
-        dir = join(dir_gps, "..", "odometry_lidar")
+        dir = join(dir_gps, "../..", "odometry_lidar")
         if not os.path.exists(dir):
             os.mkdir(dir)
         file = open(join(dir, 'odometry_lidar.txt'), 'w')
@@ -146,7 +136,7 @@ class gt_maker:
             pcl1 = np.fromfile(pclfiles[one], dtype=np.float32).reshape(-1, 4)[:,:3]
             pcl2 = np.fromfile(pclfiles[othor], dtype=np.float32).reshape(-1, 4)[:,:3]
 
-            gts = self.get_odometry(join(join(dir_pcl, "..", "odometry_lidar"), 'odometry_lidar.txt'))
+            gts = self.get_odometry(join(join(dir_pcl, "../..", "odometry_lidar"), 'odometry_lidar.txt'))
             # self.draw_traj(gts)
             pose1 = gts[one]
             pose2 = gts[othor]
