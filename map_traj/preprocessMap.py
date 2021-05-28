@@ -159,16 +159,17 @@ class Preprocess:
         pcl_cloud = self.get_traj(cloud_fname)
 
         print("\n train_set: ")
+        is_centralized = 0
         for i in tqdm(range(train_traj.shape[0])):
             pcl_traj = train_traj[i]
-            pcl = normalize(pcl_traj, pcl_cloud, scope, vox_size)
+            pcl = normalize(pcl_traj, pcl_cloud, scope, vox_size, is_centralized)
             fname = os.path.join(self.tar_train_dir, '%d.bin' % train_index[i])
             pcl.tofile(fname)
 
         print("\n test_set: ")
         for i in tqdm(range(test_traj.shape[0])):
             pcl_traj = test_traj[i]
-            pcl = normalize(pcl_traj, pcl_cloud, scope, vox_size)
+            pcl = normalize(pcl_traj, pcl_cloud, scope, vox_size, is_centralized)
             fname = os.path.join(self.tar_test_dir, '%d.bin' % test_index[i])
             pcl.tofile(fname)
 
@@ -271,9 +272,12 @@ class Preprocess:
 
 
 if __name__ == '__main__':
+    source_file = '../../benchmark_datasets/data_to_generate'
+    target_file = '../../benchmark_datasets/data_save'
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source', default='../benchmark_datasets/data_to_generate', type=str)
-    parser.add_argument('--target', default='../benchmark_datasets/data_save', type=str)
+    parser.add_argument('--source', default=source_file, type=str)
+    parser.add_argument('--target', default=target_file, type=str)
     args = parser.parse_args()
 
     # the units of the distance and scope are metre

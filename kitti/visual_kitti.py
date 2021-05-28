@@ -15,10 +15,10 @@ def visual_pcl(pcl1, pcl2):
 
 
 if __name__ == '__main__':
-
-    path = '/home/qzj/code/catkin/catkin_lego/src/LeGO-LOAM/LeGO-LOAM/generatedMap/kitti_format'
+    path = '/home/jimmy/PycharmProjects/kitti/preprocess_lgsvl/kitti/generatedMap/kitti_format'
+    # path = '/home/qzj/code/catkin/catkin_lego/src/LeGO-LOAM/LeGO-LOAM/generatedMap/kitti_format'
     num1 = 0
-    num2 = 5
+    num2 = 200
 
     fname1 = os.path.join(path,'lidar', '{}.bin'.format(str(num1).zfill(6)))
     fname2 = os.path.join(path,'lidar', '{}.bin'.format(str(num2).zfill(6)))

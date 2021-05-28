@@ -2,20 +2,13 @@ import numpy as np
 import open3d as o3d
 
 
-def normalize(pcl_traj, pcl_cloud, scope, vox_size, is_centralized):
-    # pcl[:, :2] = pcl[:, :2] / 120
-    # pcl[:, 2] = pcl[:, 2] / 30
-    # pcl[:, 2] = pcl[:, 2] - 0.15
+
+def normalize(pcl_traj, pcl_cloud, scope, vox_size):
 
     pcl = zoom_in(pcl_traj, pcl_cloud, scope)
-    if not is_centralized == 1:
-        centralization(pcl_traj.reshape(1, 3), pcl)
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pcl[:,:3])
-
-    # # added to check
-    # check_points = np.asarray(pcd.points)
 
     pcd = down_sample(pcd, vox_size, visualization=False)
     # pcd = remove_ground(pcd, visualization=False)
@@ -29,21 +22,16 @@ def normalize(pcl_traj, pcl_cloud, scope, vox_size, is_centralized):
 
 
 def zoom_in(pcl_traj, pcl_cloud, scope):
+    # pcl_traj, pcl_cloud are all 3D rather than 4D
     num = pcl_cloud.shape[0]
     pcl_newcloud = []
     pcl = pcl_traj - pcl_cloud[:, :3]
     for i in range(num):
         if abs(max(pcl[i, :])) < scope and abs(min(pcl[i, :])) < scope:
             pcl_newcloud.append(pcl_cloud[i, :])
-    pcl_newcloud = np.vstack(pcl_newcloud).reshape(-1, 3)
+    pcl_newcloud = np.asarray(pcl_newcloud).reshape(-1, 4)
 
     return pcl_newcloud
-
-
-def centralization(center, pcl_set):
-    pcl_set[:, :3] -= center[:, :3]
-
-    return pcl_set
 
 
 def display_inlier_outlier(cloud, ind):
