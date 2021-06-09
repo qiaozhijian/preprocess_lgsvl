@@ -3,35 +3,43 @@ import open3d as o3d
 
 
 
-def normalize(pcl_traj, pcl_cloud, scope, vox_size):
+def normalize(center_points, pcl_cloud, scope, vox_size):
 
-    pcl = zoom_in(pcl_traj, pcl_cloud, scope)
+    pcl_cloud[:, :3] = pcl_cloud[:, :3] - center_points
+    pcl = zoom_in(pcl_cloud, scope)
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pcl[:,:3])
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(pcl[:,:3])
+    # pcd.crop()
+    #
+    # pcd = down_sample(pcd, vox_size, visualization=False)
+    # # pcd = remove_ground(pcd, visualization=False)
+    # pcd = remove_outlier(pcd, visualization=False)
+    # pcd = down4096(pcd)
+    #
+    # if False:
+    #     o3d.visualization.draw_geometries([pcd], window_name='Open3D Origin', width=1920, height=1080, left=50, top=50,
+    #                                       point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
+    # pcl = np.asarray(pcd.points)
 
-    pcd = down_sample(pcd, vox_size, visualization=False)
-    # pcd = remove_ground(pcd, visualization=False)
-    pcd = remove_outlier(pcd, visualization=False)
-    pcd = down4096(pcd)
+    return pcl
 
-    if False:
-        o3d.visualization.draw_geometries([pcd], window_name='Open3D Origin', width=1920, height=1080, left=50, top=50,
-                                          point_show_normal=False, mesh_show_wireframe=False, mesh_show_back_face=False)
-    return np.asarray(pcd.points)
-
-
-def zoom_in(pcl_traj, pcl_cloud, scope):
-    # pcl_traj, pcl_cloud are all 3D rather than 4D
-    num = pcl_cloud.shape[0]
+from time import perf_counter
+def zoom_in(pcl, scope):
+    # center_points, pcl_cloud are all 3D rather than 4D
+    num = pcl.shape[0]
     pcl_newcloud = []
-    pcl = pcl_traj - pcl_cloud[:, :3]
-    for i in range(num):
-        if abs(max(pcl[i, :])) < scope and abs(min(pcl[i, :])) < scope:
-            pcl_newcloud.append(pcl_cloud[i, :])
-    pcl_newcloud = np.asarray(pcl_newcloud).reshape(-1, 4)
 
-    return pcl_newcloud
+    # for i in range(num):
+    #     if abs(max(pcl[i, :])) < scope and abs(min(pcl[i, :])) < scope:
+    #         pcl_newcloud.append(pcl[i, :])
+    # pcl_newcloud = np.asarray(pcl_newcloud).reshape(-1, 4)
+
+    pcl = pcl[abs(pcl[:, 0]) <= scope, :]
+    pcl = pcl[abs(pcl[:, 1]) <= scope, :]
+    pcl = pcl[abs(pcl[:, 2]) <= scope, :]
+
+    return pcl
 
 
 def display_inlier_outlier(cloud, ind):

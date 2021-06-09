@@ -5,13 +5,14 @@ import os
 import open3d as o3d
 import pandas as pd
 import shutil
+from augmentation import TrainTransform
 from os.path import join
 from sklearn.neighbors import KDTree
 from normalize_pcl import normalize
 import argparse
 from math import pi
 from scipy.spatial.transform import Rotation
-
+import concurrent.futures as futures
 Degree2Rad = 1.0 * pi / 180.0
 
 
@@ -21,8 +22,13 @@ class Preprocess:
     def __init__(self, source_dir, target_dir, train_dist, test_dist, scope, vox_size):
         self.train_dist = train_dist
         self.test_dist = test_dist
-        self.source_dir = source_dir
         self.target_dir = target_dir
+        seq = os.path.split(source_dir)[-1]
+        self.source_dir = join(source_dir, 'velodyne')
+        self.traj_files = os.path.join(self.source_dir, '../../../poses/{}.txt'.format(seq))
+        self.aug_times = 5
+
+        self.aug_fun = TrainTransform(aug_mode=1)
 
         self.mkdir_dirs()
         self.generate_samples()
@@ -34,11 +40,11 @@ class Preprocess:
         self.mkdir_safe(self.target_dir)
 
         # later used to store the csv and binary file
-        self.tar_train_loc = join(self.target_dir, "./pointcloud_locations_%dm_%doverlap.csv" % (self.test_dist, self.train_dist))
-        self.tar_test_loc = join(self.target_dir, "./pointcloud_locations_%dm.csv" % self.test_dist)
-        self.tar_train_dir = os.path.join(self.target_dir, 'pointcloud_%dm_%doverlap' % (self.test_dist, self.train_dist))
+        self.tar_train_loc = join(self.target_dir, "./pointcloud_locations_20m_10overlap.csv")
+        self.tar_test_loc = join(self.target_dir, "./pointcloud_locations_20m.csv")
+        self.tar_train_dir = os.path.join(self.target_dir, 'pointcloud_20m_10overlap')
         self.mkdir_safe(self.tar_train_dir)
-        self.tar_test_dir = os.path.join(self.target_dir, 'pointcloud_%dm' % self.test_dist)
+        self.tar_test_dir = os.path.join(self.target_dir, 'pointcloud_20m')
         self.mkdir_safe(self.tar_test_dir)
 
 
@@ -48,8 +54,7 @@ class Preprocess:
         self.timestamp_list_train = []
         self.timestamp_list_test = []
 
-        traj_files = os.path.join(self.source_dir, '../odom_key_frames.txt')
-        positions = self.get_traj_from_odom(traj_files)   #timestamp and [northing, easting, altitude]
+        positions = self.get_traj_from_odom(self.traj_files)   #timestamp and [northing, easting, altitude]
 
         # get the timestamp of the cloud point file
         cloud_files = sorted(glob(os.path.join(self.source_dir, '*')))
@@ -65,8 +70,9 @@ class Preprocess:
                 self.positions_train.append(position)
                 self.timestamp_list_train.append(100000 + int(timestamps[index]))
             if self.findNearest(position, self.positions_test, self.test_dist):
-                self.positions_test.append(position)
-                self.timestamp_list_test.append(100000 + int(timestamps[index]))
+                for i in range(self.aug_times):
+                    self.positions_test.append(position + np.full_like(position, 0.00001)*i)
+                    self.timestamp_list_test.append(100000*(i+1) + int(timestamps[index]))
 
         # 去除第一个[0,0,0]
         positions_train = np.asarray(self.positions_train[1:]).reshape(-1, 3)
@@ -94,6 +100,33 @@ class Preprocess:
             return True
         return False
 
+    def normalize(self, timestamp, tar_dir):
+        # 因为是机体坐标系，取样时中心是0
+        center_points = np.zeros([1, 3])
+        cloud_idx = timestamp % 100000;
+        is_origin = (timestamp // 100000) == 1
+        # 把编号的首位1去掉
+        cloud_fname = str(cloud_idx).zfill(6) + '.bin'
+        save_fname = str(timestamp) + '.bin'
+        cloud_file = os.path.join(self.source_dir, cloud_fname)
+        pclCloud = np.fromfile(cloud_file, dtype=np.float32).reshape(-1, 4)
+        # return a set with 4096 points, it requires the input to be 3D rather than 4D
+        pclCloud_normed = normalize(center_points, pclCloud, scope, vox_size)
+
+        if not is_origin:
+            pclCloud_normed = pclCloud_normed
+            pclCloud_normed[:,:3] = self.aug_fun(pclCloud_normed[:,:3])
+            pclCloud_normed = pclCloud_normed[np.sum(pclCloud_normed[:,:3], axis=1) <= 0.001, :]
+
+        fname = os.path.join(tar_dir, save_fname)
+        pclCloud_normed = pclCloud_normed[:,:3].astype(np.float64)
+        pclCloud_normed.tofile(fname)
+
+    def normalize_train(self, timestamp):
+        self.normalize(timestamp=timestamp, tar_dir = self.tar_train_dir)
+
+    def normalize_test(self, timestamp):
+        self.normalize(timestamp=timestamp, tar_dir = self.tar_test_dir)
 
     def normalize_pcl(self, scope, vox_size):
         train_traj = pd.read_csv(self.tar_train_loc)
@@ -104,32 +137,20 @@ class Preprocess:
         test_index = test_traj['timestamp']
         # test_traj = test_traj[:, 1:]
 
-        # 因为是机体坐标系，取样时中心是0
-        center_points = np.zeros([1, 3])
-        print("\n train_set: ")
+        # print("normalize_test start")
+        # with futures.ThreadPoolExecutor(8) as executor:
+        #     image_infos = executor.map(self.normalize_test, test_index)
+        # print("normalize_test finished")
+        #
+        # print("normalize_train start")
+        # with futures.ThreadPoolExecutor(8) as executor:
+        #     image_infos = executor.map(self.normalize_train, train_index)
+        # print("normalize_train finished")
+
         for timestamp in tqdm(train_index):
-            # 把编号的首位1去掉
-            cloud_fname = str(timestamp - 100000).zfill(6) + '.bin'
-            save_fname = str(timestamp) + '.bin'
-
-            cloud_file = os.path.join(self.source_dir, cloud_fname)
-            pclCloud = np.fromfile(cloud_file, dtype=np.float32).reshape(-1, 4)
-            # return a set with 4096 points, it requires the input to be 3D rather than 4D
-            pclCloud_normed = normalize(center_points, pclCloud, scope, vox_size)
-            fname = os.path.join(self.tar_train_dir, save_fname)
-            pclCloud_normed.tofile(fname)
-
-        print("\n test_set: ")
+            self.normalize(timestamp, tar_dir=self.tar_train_dir)
         for timestamp in tqdm(test_index):
-            cloud_fname = str(timestamp - 100000).zfill(6) + '.bin'
-            save_fname = str(timestamp) + '.bin'
-
-            cloud_file = os.path.join(self.source_dir, cloud_fname)
-            pclCloud = np.fromfile(cloud_file, dtype=np.float32).reshape(-1, 4)
-            # return a set with 4096 points, it requires the input to be 3D rather than 4D
-            pclCloud_normed = normalize(center_points, pclCloud, scope, vox_size)
-            fname = os.path.join(self.tar_test_dir, save_fname)
-            pclCloud_normed.tofile(fname)
+            self.normalize(timestamp, tar_dir=self.tar_test_dir)
 
 
     def get_traj_from_odom(self, odom_fname):
@@ -237,22 +258,24 @@ def visual_pcl(pcl1, pcl2):
 
 
 if __name__ == '__main__':
-    source_path = '../../benchmark_datasets/kitti/generatedMap/kitti_format/lidar'
-    target_path = '../../benchmark_datasets/kitti_save'
+    source_path = '../../dataset/SJTU/odometry/lidar/dataset'
+    target_path = '../benchmark_datasets/sjtu'
+    # source_path = '/media/qzj/Dataset/slamDataSet/kitti/odometry/data_odometry_velodyne/dataset'
+    # target_path = '../benchmark_datasets/kitti'
     parser = argparse.ArgumentParser()
     parser.add_argument('--source', default=source_path, type=str)
     parser.add_argument('--target', default=target_path, type=str)
     args = parser.parse_args()
 
     # the units of the distance and scope are metre
-    train_dist = 2
-    test_dist = 4
-    scope = 20  # variable 'scope' is the range of the cube
-    vox_size = 0.01  # 1cm
+    train_dist = 1
+    test_dist = 1.5
+    scope = 30  # variable 'scope' is the range of the cube
+    vox_size = 0.03  # 1cm
 
-    seq_source_dir = args.source
-    for seq_target_dir in tqdm(glob(join(args.target, "[0-9][0-9]"))):
-        preprocess = Preprocess(seq_source_dir, seq_target_dir, train_dist, test_dist, scope, vox_size)
+    for seq_source_dir in tqdm(glob(join(args.source, "sequences", "[0-0][0-1]"))):
+        seq = os.path.split(seq_source_dir)[-1]
+        preprocess = Preprocess(seq_source_dir, join(args.target, seq), train_dist, test_dist, scope, vox_size)
 
     # #### 还原地图部分
     # cloud_path = os.path.join(args.source, 'lidar')
